@@ -23,7 +23,9 @@ import (
 	"bytes"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"os"
 
 	efi "github.com/canonical/go-efilib"
 	"golang.org/x/xerrors"
@@ -126,21 +128,27 @@ func (m secureBootPolicyMixin) DetermineAuthority(dbs []*secureBootDB, image peI
 	var authority *secureBootAuthority
 SignatureLoop:
 	for _, sig := range sigs {
+		fmt.Fprintf(os.Stderr, "sig: %v\n", sig)
 		for _, db := range dbs {
+			fmt.Fprintf(os.Stderr, "db: %v\n", db)
 			// Iterate over ESLs
 			for _, l := range db.Contents {
+				fmt.Fprintf(os.Stderr, "l: %v\n", l)
 				// Ignore ESLs that aren't X509 certificates
 				if l.Type != efi.CertX509Guid {
+					fmt.Fprintf(os.Stderr, "Not x509 guid\n")
 					continue
 				}
 
 				// Shouldn't happen, but just in case...
 				if len(l.Signatures) == 0 {
+					fmt.Fprintf(os.Stderr, "No signatures\n")
 					continue
 				}
 
 				ca, err := x509.ParseCertificate(l.Signatures[0].Data)
 				if err != nil {
+					fmt.Fprintf(os.Stderr, "Cannot parse %v\n", err)
 					continue
 				}
 
@@ -150,6 +158,8 @@ SignatureLoop:
 						Signature: l.Signatures[0]}
 					break SignatureLoop
 				}
+
+				fmt.Fprintf(os.Stderr, "Not autority\n", err)
 			}
 		}
 	}

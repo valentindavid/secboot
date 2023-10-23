@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -329,6 +330,7 @@ func (h *shimImageHandleImpl) ReadVendorDB() (efi.SignatureDatabase, shimVendorC
 
 	elem := cryptobyte.String(dbData)
 	if elem.ReadASN1Element(&elem, cryptobyte_asn1.SEQUENCE) && len(elem) == len(dbData) {
+		fmt.Fprintf(os.Stderr, "Found X509 vendor cert\n")
 		// The vendor DB data contains a single X.509 certificate
 		return efi.SignatureDatabase{
 			{
@@ -343,6 +345,7 @@ func (h *shimImageHandleImpl) ReadVendorDB() (efi.SignatureDatabase, shimVendorC
 	if err != nil {
 		return nil, 0, err
 	}
+	fmt.Fprintf(os.Stderr, "Found vendor db\n")
 	return db, shimVendorCertIsDb, nil
 }
 

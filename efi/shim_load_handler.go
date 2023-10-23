@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"os"
 
 	efi "github.com/canonical/go-efilib"
 	"github.com/canonical/tcglog-parser"
@@ -275,6 +277,7 @@ func (m *shimImageLoadMeasurer) measurePEImageDigest() error {
 func (m *shimImageLoadMeasurer) measureVerification() error {
 	sc := m.ShimContext()
 
+	fmt.Fprintf(os.Stderr, "vendordb: %v\n", sc.VendorDb)
 	authority, err := m.DetermineAuthority([]*secureBootDB{sc.VendorDb, m.FwContext().Db}, m.image)
 	if err != nil {
 		return xerrors.Errorf("shimImageLoadMeasurer.measureVerification: %w", err)
