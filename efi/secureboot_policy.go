@@ -382,7 +382,7 @@ func (b *secureBootPolicyGenBranch) computeAndExtendVerificationMeasurement(imag
 
 	authority, err := b.DetermineAuthority(dbs, image)
 	if err != nil {
-		return err
+		return xerrors.Errorf("secureBootPolicyGenBranch.computeAndExtendVerificationMeasurement: %w", err)
 	}
 
 	// Serialize authority certificate for measurement

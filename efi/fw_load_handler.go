@@ -225,7 +225,7 @@ func newFwImageLoadMeasurer(bc pcrBranchContext, image peImageHandle) *fwImageLo
 func (m *fwImageLoadMeasurer) measureVerification() error {
 	authority, err := m.DetermineAuthority([]*secureBootDB{m.FwContext().Db}, m.image)
 	if err != nil {
-		return err
+		return xerrors.Errorf("fwImageLoadMeasurer.measureVerification: %w", err)
 	}
 
 	// Firmware always measures the entire EFI_SIGNATURE_DATA including the SignatureOwner

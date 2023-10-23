@@ -277,7 +277,7 @@ func (m *shimImageLoadMeasurer) measureVerification() error {
 
 	authority, err := m.DetermineAuthority([]*secureBootDB{sc.VendorDb, m.FwContext().Db}, m.image)
 	if err != nil {
-		return err
+		return xerrors.Errorf("shimImageLoadMeasurer.measureVerification: %w", err)
 	}
 
 	// Shim before https://github.com/rhboot/shim/commit/e3325f8100f5a14e0684ff80290e53975de1a5d9
