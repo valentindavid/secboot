@@ -131,9 +131,7 @@ func (m secureBootPolicyMixin) DetermineAuthority(dbs []*secureBootDB, image peI
 SignatureLoop:
 	for _, sig := range sigs {
 		fmt.Fprintf(os.Stderr, "sig: %v\n", sig)
-		for _, signer := range sig.GetSigners() {
-			fmt.Fprintf(os.Stderr, "signer: %v\n", signer)
-		}
+		fmt.Fprintf(os.Stderr, "signer: %v\n", sig.GetSigner())
 		for _, db := range dbs {
 			fmt.Fprintf(os.Stderr, "db: %v\n", db)
 			// Iterate over ESLs
