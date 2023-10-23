@@ -156,12 +156,15 @@ SignatureLoop:
 					authority = &secureBootAuthority{
 						Source:    db.Name,
 						Signature: l.Signatures[0]}
+					fmt.Fprintf(os.Stderr, "authority\n")
 					break SignatureLoop
 				}
 
-				fmt.Fprintf(os.Stderr, "Not autority\n", err)
+				fmt.Fprintf(os.Stderr, "Not autority\n")
 			}
+			fmt.Fprintf(os.Stderr, "end db\n")
 		}
+		fmt.Fprintf(os.Stderr, "end sig\n")
 	}
 
 	if authority == nil {
