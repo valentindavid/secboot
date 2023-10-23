@@ -330,7 +330,7 @@ func (h *shimImageHandleImpl) ReadVendorDB() (efi.SignatureDatabase, shimVendorC
 
 	elem := cryptobyte.String(dbData)
 	if elem.ReadASN1Element(&elem, cryptobyte_asn1.SEQUENCE) && len(elem) == len(dbData) {
-		fmt.Fprintf(os.Stderr, "Found X509 vendor cert %v\n", efi.SignatureData{{Data: dbData}})
+		fmt.Fprintf(os.Stderr, "Found X509 vendor cert %v\n", efi.SignatureData{Data: dbData})
 		// The vendor DB data contains a single X.509 certificate
 		return efi.SignatureDatabase{
 			{
