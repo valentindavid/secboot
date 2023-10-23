@@ -116,7 +116,7 @@ type secureBootPolicyMixin struct{}
 // This only supports images that are verified with an asymmetric signature - it does not
 // support images that are authenticated by their image digest.
 func (m secureBootPolicyMixin) DetermineAuthority(dbs []*secureBootDB, image peImageHandle) (*secureBootAuthority, error) {
-	fmt.Fprintf(os.Stderr, "DetermineAuthority\n")
+	fmt.Fprintf(os.Stderr, "DetermineAuthority for %s\n", image.Source().String())
 
 	sigs, err := image.SecureBootSignatures()
 	if err != nil {
