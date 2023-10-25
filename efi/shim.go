@@ -129,20 +129,23 @@ func newestSbatLevel(levels ...[]byte) ([]byte, error) {
 		if err != nil {
 			return nil, xerrors.Errorf("cannot parse SBAT level %d: %w", i, err)
 		}
-		if len(record) < 3 {
+		if len(record) < 2 {
 			return nil, fmt.Errorf("invalid SBAT level at %d", i)
 		}
 
 		// Obtain the version and datestamp.
 		version := record[1]
-		date := record[2]
+		var date string
+		if len(record) >= 3 {
+			date = record[2]
+		}
 
 		switch {
 		case newestVersion == "" || version > newestVersion:
 			newestVersion = version
 			newestDate = date
 			newest = level
-		case version == newestVersion && date > newestDate:
+		case version == newestVersion && date != "" && date > newestDate:
 			newestDate = date
 			newest = level
 		}
