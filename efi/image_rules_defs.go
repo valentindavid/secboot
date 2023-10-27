@@ -161,18 +161,7 @@ func makeMicrosoftUEFICASecureBootNamespaceRules() *secureBootNamespaceRules {
 				),
 				imageMatchesAll(
 					imageSectionExists("mods"),
-					imageSignedByOrganization("Canonical Ltd."),
-				),
-			),
-			newGrubLoadHandlerConstructor(grubChainloaderUsesShimProtocol).New,
-		),
-		withImageRuleOnlyForTesting(
-			"Ubuntu grub, signed with snakeoil or other test key",
-			imageMatchesAll(
-				imageSectionExists(".mods"),
-				imageMatchesAny(
-					imageSignedByOrganization("Snake Oil"),
-					imageSignedByCommonName("new vendor certificate"),
+					grubHasPrefix("/EFI/ubuntu"),
 				),
 			),
 			newGrubLoadHandlerConstructor(grubChainloaderUsesShimProtocol).New,
@@ -217,6 +206,15 @@ func makeFallbackImageRules() *imageRules {
 			"shim",
 			imageSectionExists(".vendor_cert"),
 			newShimLoadHandler,
+		),
+		// Ubuntu grub
+		newImageRule(
+			"grub",
+			imageMatchesAll(
+				imageSectionExists("mods"),
+				grubHasPrefix("/EFI/ubuntu"),
+			),
+			newGrubLoadHandlerConstructor(grubChainloaderUsesShimProtocol).New,
 		),
 		// Grub
 		newImageRule(

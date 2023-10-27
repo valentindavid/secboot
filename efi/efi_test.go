@@ -143,6 +143,8 @@ type mockPeImageHandle struct {
 func (*mockPeImageHandle) Close() error    { return nil }
 func (h *mockPeImageHandle) Source() Image { return h.mockImage }
 
+func (h *mockPeImageHandle) Machine() uint16 { return 0 }
+
 func (h *mockPeImageHandle) OpenSection(name string) *io.SectionReader {
 	data, exists := h.sections[name]
 	if !exists {
@@ -182,6 +184,10 @@ func (h *mockPeImageHandle) newShimImageHandle() *mockShimImageHandle {
 	return &mockShimImageHandle{mockPeImageHandle: h}
 }
 
+func (h *mockPeImageHandle) newGrubImageHandle() *mockGrubImageHandle {
+	return &mockGrubImageHandle{mockPeImageHandle: h}
+}
+
 type mockShimImageHandle struct {
 	*mockPeImageHandle
 }
@@ -211,6 +217,14 @@ func (h *mockShimImageHandle) ReadSbatLevel() (ShimSbatLevel, error) {
 	return *h.shimSbatLevel, nil
 }
 
+type mockGrubImageHandle struct {
+	*mockPeImageHandle
+}
+
+func (h *mockGrubImageHandle) Prefix() (string, error) {
+	return h.grubPrefix, nil
+}
+
 type mockImage struct {
 	sections  map[string][]byte
 	sbat      []SbatComponent
@@ -222,6 +236,8 @@ type mockImage struct {
 	shimVendorDb       efi.SignatureDatabase
 	shimVendorDbFormat ShimVendorCertFormat
 	shimSbatLevel      *ShimSbatLevel
+
+	grubPrefix string
 }
 
 func newMockImage() *mockImage {
@@ -284,6 +300,11 @@ func (i *mockImage) withShimSbatLevel(sbatLevel ShimSbatLevel) *mockImage {
 	return i
 }
 
+func (i *mockImage) withGrubPrefix(prefix string) *mockImage {
+	i.grubPrefix = prefix
+	return i
+}
+
 func newMockUbuntuShimImage15a(c *C) *mockImage {
 	return newMockImage().
 		appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig1)).
@@ -324,7 +345,8 @@ func newMockUbuntuShimImage15_7(c *C) *mockImage {
 func newMockUbuntuGrubImage1(c *C) *mockImage {
 	return newMockImage().
 		appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, grubUbuntuSig1)).
-		addSection("mods", nil)
+		addSection("mods", nil).
+		withGrubPrefix("/EFI/ubuntu")
 }
 
 func newMockUbuntuGrubImage2(c *C) *mockImage {
@@ -334,7 +356,8 @@ func newMockUbuntuGrubImage2(c *C) *mockImage {
 		withSbat([]SbatComponent{
 			{Name: "grub"},
 			{Name: "grub.ubuntu"},
-		})
+		}).
+		withGrubPrefix("/EFI/ubuntu")
 }
 
 func newMockUbuntuGrubImage3(c *C) *mockImage {
@@ -344,7 +367,8 @@ func newMockUbuntuGrubImage3(c *C) *mockImage {
 		withSbat([]SbatComponent{
 			{Name: "grub"},
 			{Name: "grub.ubuntu"},
-		})
+		}).
+		withGrubPrefix("/EFI/ubuntu")
 }
 
 func newMockUbuntuKernelImage1(c *C) *mockImage {
@@ -434,6 +458,27 @@ func (m *mockShimImageHandleMixin) SetUpTest(c *C) {
 }
 
 func (m *mockShimImageHandleMixin) TearDownTest(c *C) {
+	if m.restore != nil {
+		m.restore()
+	}
+}
+
+type mockGrubImageHandleMixin struct {
+	restore func()
+}
+
+func (m *mockGrubImageHandleMixin) SetUpTest(c *C) {
+	orig := NewGrubImageHandle
+	m.restore = MockNewGrubImageHandle(func(image PeImageHandle) GrubImageHandle {
+		h, ok := image.(*mockPeImageHandle)
+		if !ok {
+			return orig(image)
+		}
+		return h.newGrubImageHandle()
+	})
+}
+
+func (m *mockGrubImageHandleMixin) TearDownTest(c *C) {
 	if m.restore != nil {
 		m.restore()
 	}
