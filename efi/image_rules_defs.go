@@ -222,8 +222,7 @@ func makeFallbackImageRules() *imageRules {
 			imageSectionExists("mods"),
 			newGrubLoadHandler,
 		),
-		// TODO: add rules for Ubuntu Core UKI and Ubuntu grub that are not part of
-		// the MS UEFI CA?
+		// TODO: add rules for Ubuntu Core UKIs that are not part of the MS UEFI CA
 		//
 		// Catch-all for unrecognized leaf images
 		newImageRule(
