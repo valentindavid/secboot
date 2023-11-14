@@ -218,7 +218,7 @@ func (h *shimLoadHandler) MeasureImageStart(ctx pcrBranchContext) error {
 	case err == efi.ErrVarNotExist:
 		// shim will program and measure one of its built in values.
 		sbatLevel = h.SbatLevel.ForPolicy(policy)
-		fmt.Fprintf(os.Stderr , "SbatLevelRT does not exist\n")
+		fmt.Fprintf(os.Stderr, "SbatLevelRT does not exist %s %s %d %s\n", h.SbatLevel.ForPolicy(shimSbatPolicyLatest), h.SbatLevel.ForPolicy(shimSbatPolicyPrevious), policy, h.SbatLevel.ForPolicy(policy))
 	case err != nil:
 		return xerrors.Errorf("cannot obtain current SbatLevel: %w", err)
 	default:
