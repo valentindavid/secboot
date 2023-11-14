@@ -53,7 +53,7 @@ func makeMicrosoftUEFICASecureBootNamespaceRules() *secureBootNamespaceRules {
 			// pubkey alg
 			x509.RSA,
 		),
-		withAuthorityOnlyForTesting(
+		withAuthority(
 			// O = Snake Oil
 			[]byte{
 				0x30, 0x14, 0x31, 0x12, 0x30, 0x10, 0x06, 0x03, 0x55, 0x04,
