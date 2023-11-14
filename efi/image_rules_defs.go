@@ -134,7 +134,7 @@ func makeMicrosoftUEFICASecureBootNamespaceRules() *secureBootNamespaceRules {
 			),
 			newShimLoadHandlerConstructor().WithVersion(mustParseShimVersion("15.2")).New,
 		),
-		withImageRuleOnlyForTesting(
+		withImageRule(
 			"Ubuntu shim 15 with required patches, signed with snakeoil key",
 			imageMatchesAll(
 				imageSectionExists(".vendor_cert"),
