@@ -75,7 +75,7 @@ func (c *shimLoadHandlerConstructor) New(image peImageHandle) (imageLoadHandler,
 		// Releases prior to 15.2 contain bugs that aren't accommodated here,
 		// fixed by https://github.com/rhboot/shim/commit/58df8d745c6516818ba6ebfa8fe826702c1621a0
 		// and https://github.com/rhboot/shim/commit/9f80be9f16a854e3946568fa92edebe26eb79e78
-		return nil, errors.New("unsupported shim version < 15.2")
+		return nil, xerrors.Errorf("unsupported shim version %v < 15.2", ver)
 	}
 
 	var flags shimFlags
