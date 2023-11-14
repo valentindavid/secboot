@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"os"
 
 	efi "github.com/canonical/go-efilib"
 	"github.com/canonical/tcglog-parser"
@@ -223,15 +225,18 @@ func (h *shimLoadHandler) MeasureImageStart(ctx pcrBranchContext) error {
 	case err == efi.ErrVarNotExist:
 		// shim will program and measure one of its built in values.
 		sbatLevel = h.SbatLevel.ForPolicy(policy)
+		fmt.Fprintf(os.Stderr , "SbatLevelRT does not exist\n")
 	case err != nil:
 		return xerrors.Errorf("cannot obtain current SbatLevel: %w", err)
 	default:
+		fmt.Fprintf(os.Stderr, "Comparing with host variable %s with new value %s\n", hostSbatLevel, h.SbatLevel.ForPolicy(policy))
 		// Determine which is the newest
 		sbatLevel, err = newestSbatLevel(hostSbatLevel, h.SbatLevel.ForPolicy(policy))
 		if err != nil {
 			return xerrors.Errorf("cannot determine newest SbatLevel payload: %w", err)
 		}
 	}
+	fmt.Fprintf(os.Stderr, "Expected measured value is %s\n", sbatLevel)
 
 	// Measure SbatLevel
 	ctx.MeasureVariable(secureBootPCR, shimGuid, shimSbatLevelName, sbatLevel)
