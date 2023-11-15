@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
+	"os"
 
 	"golang.org/x/xerrors"
 )
@@ -112,6 +113,7 @@ func (r *imageRules) NewImageLoadHandler(image peImageHandle) (imageLoadHandler,
 		if err != nil {
 			return nil, xerrors.Errorf("cannot run \"%s\" image rule: %w", rule.name, err)
 		}
+		fmt.Fprintf(os.Stderr, "rule %s: %v\n", rule.name, matches)
 		if matches {
 			handler, err := rule.create(image)
 			if err != nil {
