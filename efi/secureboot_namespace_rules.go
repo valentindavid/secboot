@@ -146,7 +146,10 @@ func (r *secureBootNamespaceRules) NewImageLoadHandler(image peImageHandle) (ima
 			PublicKeyAlgorithm: authority.publicKeyAlgorithm}
 		for _, sig := range sigs {
 			fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler D\n")
-			if !sig.CertLikelyTrustAnchor(cert) {
+			//FIXME: CertLikelyTrustAnchor is broken?
+			signer := sig.GetSigner()
+			selfSigned := bytes.Equal(signer.RawSubject, authority.subject) && bytes.Equal(signer.SubjectKeyId, authority.subjectKeyId) && signer.PublicKeyAlgorithm == authority.publicKeyAlgorithm
+			if !sig.CertLikelyTrustAnchor(cert) && !selfSigned {
 				fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler E\n")
 				continue
 			}
