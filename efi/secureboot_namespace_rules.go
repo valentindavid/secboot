@@ -22,6 +22,8 @@ package efi
 import (
 	"bytes"
 	"crypto/x509"
+	"fmt"
+	"os"
 
 	"github.com/snapcore/snapd/snapdenv"
 	"golang.org/x/xerrors"
@@ -127,38 +129,50 @@ func (r *secureBootNamespaceRules) AddAuthorities(certs ...*x509.Certificate) {
 func (r *secureBootNamespaceRules) NewImageLoadHandler(image peImageHandle) (imageLoadHandler, error) {
 	// This may return no signatures, but that's ok - in the case, we just return
 	// errNoHandler.
+	fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler A\n")
+
 	sigs, err := image.SecureBootSignatures()
 	if err != nil {
 		// Reject any image with a badly formed security directory entry
+		fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler B\n")
 		return nil, xerrors.Errorf("cannot obtain secure boot signatures: %w", err)
 	}
 
 	for _, authority := range r.authorities {
+		fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler C\n")
 		cert := &x509.Certificate{
 			RawSubject:         authority.subject,
 			SubjectKeyId:       authority.subjectKeyId,
 			PublicKeyAlgorithm: authority.publicKeyAlgorithm}
 		for _, sig := range sigs {
+			fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler D\n")
 			if !sig.CertLikelyTrustAnchor(cert) {
+				fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler E\n")
 				continue
 			}
 
 			handler, err := r.imageRules.NewImageLoadHandler(image)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler F\n")
 				return nil, err
 			}
 
 			if v, ok := handler.(vendorAuthorityGetter); ok {
+				fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler G\n")
 				certs, err := v.VendorAuthorities()
 				if err != nil {
+					fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler H\n")
 					return nil, xerrors.Errorf("cannot obtain vendor authorities: %w", err)
 				}
 				r.AddAuthorities(certs...)
 			}
+			fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler I\n")
 
 			return handler, nil
 		}
+		fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler K\n")
 	}
+	fmt.Fprintf(os.Stderr, "secureBootNamespaceRules.NewImageLoadHandler L\n")
 
 	return nil, errNoHandler
 }
