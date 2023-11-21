@@ -53,7 +53,7 @@ func makeMicrosoftUEFICASecureBootNamespaceRules() *secureBootNamespaceRules {
 			// pubkey alg
 			x509.RSA,
 		),
-		withAuthority(
+		withAuthorityOnlyForTesting(
 			// O = Snake Oil
 			[]byte{
 				0x30, 0x14, 0x31, 0x12, 0x30, 0x10, 0x06, 0x03, 0x55, 0x04,
@@ -134,7 +134,7 @@ func makeMicrosoftUEFICASecureBootNamespaceRules() *secureBootNamespaceRules {
 			),
 			newShimLoadHandlerConstructor().WithVersion(mustParseShimVersion("15.2")).New,
 		),
-		withImageRule(
+		withImageRuleOnlyForTesting(
 			"Ubuntu shim 15 with required patches, signed with snakeoil key",
 			imageMatchesAll(
 				imageSectionExists(".vendor_cert"),
