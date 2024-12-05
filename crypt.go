@@ -957,6 +957,8 @@ func CopyAndRemoveLUKS2ContainerKey(devicePath, oldName, newName string) error {
 	return renameLUKS2ContainerKey(devicePath, oldName, newName, replace)
 }
 
+var KeyslotAlreadyHasAName = errors.New("keyslot already has a name")
+
 func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string) error {
 	view, err := newLUKSView(devicePath, luks2.LockModeBlocking)
 	if err != nil {
@@ -966,7 +968,7 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 	for _, name := range view.TokenNames() {
 		_, id, _ := view.TokenByName(name)
 		if keyslot == id {
-			return errors.New("keyslot already has a name")
+			return KeyslotAlreadyHasAName
 		}
 	}
 
