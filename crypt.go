@@ -966,8 +966,8 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 	}
 
 	for _, name := range view.TokenNames() {
-		_, id, _ := view.TokenByName(name)
-		if keyslot == id {
+		_, id, inUse := view.TokenByName(name)
+		if inUse && keyslot == id {
 			return KeyslotAlreadyHasAName
 		}
 	}
@@ -976,13 +976,14 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 	for _, usedSlot := range view.UsedKeyslots() {
 		if usedSlot == keyslot {
 			keyslotExists = true
+			break
 		}
 	}
 	if !keyslotExists {
 		return nil
 	}
 
-	token := &luksview.KeyDataToken{
+	token := &luksview.RecoveryToken{
 		TokenBase: luksview.TokenBase{
 			TokenName:    newName,
 			TokenKeyslot: keyslot,
