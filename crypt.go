@@ -965,24 +965,32 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 		return xerrors.Errorf("cannot obtain LUKS header view: %w", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "MYDEBUG: listing tokens\n")
 	for _, name := range view.TokenNames() {
 		_, id, inUse := view.TokenByName(name)
+		fmt.Fprintf(os.Stderr, "MYDEBUG: token %s %v %v\n", name, id, inUse)
 		if inUse && keyslot == id {
+			fmt.Fprintf(os.Stderr, "MYDEBUG: already named\n")
 			return KeyslotAlreadyHasAName
 		}
 	}
 
+	fmt.Fprintf(os.Stderr, "MYDEBUG: listing used keyslots\n")
 	keyslotExists := false
 	for _, usedSlot := range view.UsedKeyslots() {
+		fmt.Fprintf(os.Stderr, "MYDEBUG: found keyslot %v\n", usedSlot)
 		if usedSlot == keyslot {
+			fmt.Fprintf(os.Stderr, "MYDEBUG: found it!\n")
 			keyslotExists = true
 			break
 		}
 	}
 	if !keyslotExists {
+		fmt.Fprintf(os.Stderr, "MYDEBUG: not found!\n")
 		return nil
 	}
 
+	fmt.Fprintf(os.Stderr, "MYDEBUG: importing %v as %s\n", keyslot, newName)
 	token := &luksview.RecoveryToken{
 		TokenBase: luksview.TokenBase{
 			TokenName:    newName,
@@ -992,10 +1000,6 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 
 	if err := luks2ImportToken(devicePath, token, nil); err != nil {
 		return xerrors.Errorf("cannot import token: %w", err)
-	}
-
-	if err := luks2SetSlotPriority(devicePath, keyslot, luks2.SlotPriorityHigh); err != nil {
-		return xerrors.Errorf("cannot change keyslot priority: %w", err)
 	}
 
 	return nil

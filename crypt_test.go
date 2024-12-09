@@ -4023,7 +4023,7 @@ func (s *cryptSuite) TestNameLegacyLUKS2ContainerKey(c *C) {
 
 	token, hasToken := m.tokens[0]
 	c.Assert(hasToken, Equals, true)
-	c.Check(token, DeepEquals, &luksview.KeyDataToken{
+	c.Check(token, DeepEquals, &luksview.RecoveryToken{
 		TokenBase: luksview.TokenBase{
 			TokenKeyslot: 0,
 			TokenName:    "some-name",
