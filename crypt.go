@@ -967,11 +967,15 @@ func NameLegacyLUKS2ContainerKey(devicePath string, keyslot int, newName string)
 
 	fmt.Fprintf(os.Stderr, "MYDEBUG: listing tokens\n")
 	for _, name := range view.TokenNames() {
-		_, id, inUse := view.TokenByName(name)
-		fmt.Fprintf(os.Stderr, "MYDEBUG: token %s %v %v\n", name, id, inUse)
-		if inUse && keyslot == id {
-			fmt.Fprintf(os.Stderr, "MYDEBUG: already named\n")
-			return KeyslotAlreadyHasAName
+		token, _, inUse := view.TokenByName(name)
+		if inUse {
+			for _, usedKeyslot := range token.Keyslots() {
+				fmt.Fprintf(os.Stderr, "MYDEBUG: token %s %v %v\n", name, usedKeyslot, inUse)
+				if usedKeyslot == keyslot {
+					fmt.Fprintf(os.Stderr, "MYDEBUG: already named\n")
+					return KeyslotAlreadyHasAName
+				}
+			}
 		}
 	}
 
