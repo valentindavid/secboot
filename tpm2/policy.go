@@ -70,6 +70,14 @@ type dynamicPolicyData struct {
 	authorizedPolicySignature *tpm2.Signature
 }
 
+func (d *dynamicPolicyData) GetSig() *tpm2.Signature {
+	return d.authorizedPolicySignature
+}
+
+func (d *dynamicPolicyData) GetPolicyDigest() tpm2.Digest {
+	return d.authorizedPolicy
+}
+
 // dynamicPolicyDataRaw_v0 is version 0 of the on-disk format of dynamicPolicyData.
 type dynamicPolicyDataRaw_v0 struct {
 	PCRSelection              tpm2.PCRSelectionList
@@ -109,6 +117,10 @@ type staticPolicyData struct {
 	authPublicKey          *tpm2.Public
 	pcrPolicyCounterHandle tpm2.Handle
 	v0PinIndexAuthPolicies tpm2.DigestList
+}
+
+func (s *staticPolicyData) GetPublicKey() *tpm2.Public {
+	return s.authPublicKey
 }
 
 // staticPolicyDataRaw_v0 is version 0 of the on-disk format of staticPolicyData.

@@ -224,6 +224,10 @@ func (k *SealedKeyObject) Version() uint32 {
 	return k.data.Version()
 }
 
+func (k *SealedKeyObject) GetData() keyData {
+	return k.data
+}
+
 // PCRPolicyCounterHandle indicates the handle of the NV counter used for PCR policy revocation for this sealed key object (and for
 // PIN integration for version 0 key files).
 func (k *SealedKeyObject) PCRPolicyCounterHandle() tpm2.Handle {
