@@ -123,8 +123,10 @@ func (e *activateWithKeyDataError) Unwrap() error {
 
 type keyCandidate struct {
 	*KeyData
-	slot int
-	err  error
+	slot     int
+	err      error
+	unlocked bool
+	name     string
 }
 
 type activateWithKeyDataState struct {
@@ -258,6 +260,8 @@ func (s *activateWithKeyDataState) run() (success bool, err error) {
 			continue
 		}
 
+		k.unlocked = true
+
 		return true, nil
 	}
 
@@ -299,6 +303,8 @@ func (s *activateWithKeyDataState) run() (success bool, err error) {
 				k.err = err
 				continue
 			}
+
+			k.unlocked = true
 
 			return true, nil
 		}
@@ -417,6 +423,11 @@ func (e *activateVolumeWithKeyDataError) Error() string {
 // activation with the recovery key was successful.
 var ErrRecoveryKeyUsed = errors.New("cannot activate with platform protected keys but activation with the recovery key was successful")
 
+type UnlockedInfo struct {
+	Indexed int
+	Keyslot string
+}
+
 // ActivateVolumeWithKeyData attempts to activate the LUKS encrypted container at
 // sourceDevicePath and create a mapping with the name volumeName, using one of
 // the KeyData objects stored in the container's metadata area to recover the
@@ -446,21 +457,22 @@ var ErrRecoveryKeyUsed = errors.New("cannot activate with platform protected key
 // If activation with one of the KeyData objects succeeds (ie, no error is
 // returned), then the supplied SnapModel is authorized to access the data on
 // this volume.
-func ActivateVolumeWithKeyData(volumeName, sourceDevicePath string, authRequestor AuthRequestor, options *ActivateVolumeOptions, keys ...*KeyData) error {
+func ActivateVolumeWithKeyData(volumeName, sourceDevicePath string, authRequestor AuthRequestor, options *ActivateVolumeOptions, keys ...*KeyData) (*UnlockedInfo, error) {
 	if options.PassphraseTries < 0 {
-		return errors.New("invalid PassphraseTries")
+		return nil, errors.New("invalid PassphraseTries")
 	}
 	if options.RecoveryKeyTries < 0 {
-		return errors.New("invalid RecoveryKeyTries")
+		return nil, errors.New("invalid RecoveryKeyTries")
 	}
 	if (options.PassphraseTries > 0 || options.RecoveryKeyTries > 0) && authRequestor == nil {
-		return errors.New("nil authRequestor")
+		return nil, errors.New("nil authRequestor")
 	}
 
 	var candidates []*keyCandidate
 	for _, key := range keys {
 		candidates = append(candidates, &keyCandidate{KeyData: key, slot: luks2.AnySlot})
 	}
+	staticKeys := len(keys)
 
 	view, err := newLUKSView(sourceDevicePath, luks2.LockModeBlocking)
 	if err != nil {
@@ -482,7 +494,7 @@ func ActivateVolumeWithKeyData(volumeName, sourceDevicePath string, authRequesto
 				continue
 			}
 
-			candidates = append(candidates, &keyCandidate{KeyData: kd, slot: token.Keyslots()[0]})
+			candidates = append(candidates, &keyCandidate{KeyData: kd, name: token.Name(), slot: token.Keyslots()[0]})
 		}
 	}
 
@@ -491,7 +503,18 @@ func ActivateVolumeWithKeyData(volumeName, sourceDevicePath string, authRequesto
 	success, err := s.run()
 	switch {
 	case success:
-		return nil
+		for n, key := range s.keys {
+			if key.unlocked {
+				ret := &UnlockedInfo{Indexed: -1}
+				if n < staticKeys {
+					ret.Indexed = n
+				} else {
+					ret.Keyslot = key.name
+				}
+				return ret, nil
+			}
+		}
+		return nil, nil
 	default: // failed - try recovery key
 		if rErr := activateWithRecoveryKey(volumeName, sourceDevicePath, authRequestor, options.RecoveryKeyTries, options.KeyringPrefix); rErr != nil {
 			// failed with recovery key - return errors
@@ -502,10 +525,10 @@ func ActivateVolumeWithKeyData(volumeName, sourceDevicePath string, authRequesto
 			if err != nil {
 				kdErrs = append(kdErrs, err)
 			}
-			return &activateVolumeWithKeyDataError{kdErrs, rErr}
+			return nil, &activateVolumeWithKeyDataError{kdErrs, rErr}
 		}
 		// succeeded with recovery key
-		return ErrRecoveryKeyUsed
+		return nil, ErrRecoveryKeyUsed
 	}
 }
 
