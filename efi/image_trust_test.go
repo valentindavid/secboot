@@ -45,7 +45,7 @@ func (s *imageTrustSuite) TearDownTest(c *C) {
 	s.mockImageHandleMixin.TearDownTest(c)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostGood(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemGood(c *C) {
 	// Image signed by MS UEFI CA, db contains MS UEFI CA - should succeed.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
 
@@ -57,11 +57,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostGood(c *C) {
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleCAsInDb(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemMultipleCAsInDb(c *C) {
 	// Image signed by MS UEFI CA, db contains both MS PCA and MS UEFI CA - should succeed.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
 
@@ -74,11 +74,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleCAsInDb(c
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleX509EntriesInSingleSignatureList(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemMultipleX509EntriesInSingleSignatureList(c *C) {
 	// Image signed by MS UEFI CA, db contains one EFI_SIGNATURE_LIST with
 	// multiple X.509 signature entries where only one entry matches.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
@@ -98,11 +98,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleX509Entri
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostWrongCA(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemWrongCA(c *C) {
 	// Image signed by MS UEFI CA, but db only has Canonical CA - should fail.
 	// This simulates the scenario where old hardware has a different CA.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
@@ -115,11 +115,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostWrongCA(c *C) {
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, ErrorMatches, `cannot find any secure boot signature that is trusted by the current host's authorized signature database`)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostUnsignedImage(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemUnsignedImage(c *C) {
 	// Unsigned image - should fail.
 	image := newMockImage()
 
@@ -131,11 +131,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostUnsignedImage(c *
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `image has no secure boot signatures`)
+	err := CheckPEImageKnownBySystem(ctx, image)
+	c.Check(err, ErrorMatches, `cannot find any secure boot signature that is trusted by the current host's authorized signature database`)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostNoDb(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemNoDb(c *C) {
 	// Image is signed but no db variable exists - treat as empty DB and fail
 	// with no matching trust anchor.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
@@ -146,22 +146,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostNoDb(c *C) {
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `cannot find any secure boot signature that is trusted by the current host's authorized signature database`)
+	err := CheckPEImageKnownBySystem(ctx, image)
+	c.Check(err, ErrorMatches, `cannot read authorized signature database: variable does not exist`)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostNoVarsBackend(c *C) {
-	// No EFI variables backend at all - should fail.
-	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
-
-	env := efitest.NewMockHostEnvironment(nil, nil)
-	ctx := env.VarContext(context.Background())
-
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `cannot read forbidden signature database:.*`)
-}
-
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostCanonicalCA(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemCanonicalCA(c *C) {
 	// Image signed by Canonical CA, db contains Canonical CA - should succeed.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, grubUbuntuSig3))
 
@@ -173,11 +162,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostCanonicalCA(c *C)
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostBadImage(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemBadImage(c *C) {
 	// Mock openPeImage to fail to test error handling.
 	restoreOpen := MockOpenPeImage(func(image Image) (PeImageHandle, error) {
 		return nil, errors.New("mock open error")
@@ -193,11 +182,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostBadImage(c *C) {
 	ctx := env.VarContext(context.Background())
 
 	image := newMockImage()
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, ErrorMatches, `cannot open image: mock open error`)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostNoDbx(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemNoDbx(c *C) {
 	// Image is signed and db exists but no dbx variable exists - treat as empty
 	// DBX and succeed.
 	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
@@ -209,48 +198,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostNoDbx(c *C) {
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostRevokedByDbxCert(c *C) {
-	// Image signed by MS UEFI CA and db trusts that CA, but dbx revokes it.
-	image := newMockImage().appendSignatures(efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4))
-
-	vars := efitest.MakeMockVars()
-	vars.SetDb(c, efi.SignatureDatabase{
-		efitest.NewSignatureListX509(c, msUefiCACert, msOwnerGuid),
-	})
-	vars.SetDbx(c, efi.SignatureDatabase{
-		efitest.NewSignatureListX509(c, msUefiCACert, msOwnerGuid),
-	})
-	env := efitest.NewMockHostEnvironment(vars, nil)
-	ctx := env.VarContext(context.Background())
-
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `secure boot signature is forbidden by the current host's signature databases`)
-}
-
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostRevokedByDbxDigest(c *C) {
-	// Image signed by MS UEFI CA and db trusts it, but dbx revokes the image digest.
-	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
-	image := newMockImage().appendSignatures(sig)
-
-	vars := efitest.MakeMockVars()
-	vars.SetDb(c, efi.SignatureDatabase{
-		efitest.NewSignatureListX509(c, msUefiCACert, msOwnerGuid),
-	})
-	vars.SetDbx(c, efi.SignatureDatabase{
-		efitest.NewSignatureListDigests(c, sig.DigestAlgorithm(), msOwnerGuid, sig.Digest()),
-	})
-	env := efitest.NewMockHostEnvironment(vars, nil)
-	ctx := env.VarContext(context.Background())
-
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `secure boot signature is forbidden by the current host's signature databases`)
-}
-
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestAuthorized(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemDigestAuthorized(c *C) {
 	// Image signed and its digest is in db (not via CA chain);
 	// should succeed.
 	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
@@ -264,11 +216,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestAuthorized(
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestAuthorizedWithSha384DbEntry(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemDigestAuthorizedWithSha384DbEntry(c *C) {
 	// Signatures are SHA256 Authenticode, but DB authorization should use the
 	// image digest for the signature list algorithm (SHA384 here).
 	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
@@ -286,11 +238,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestAuthorizedW
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestNotAuthorized(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemDigestNotAuthorized(c *C) {
 	// Image signed but its digest is not in db - should fail.
 	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
 	image := newMockImage().appendSignatures(sig)
@@ -308,11 +260,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestNotAuthoriz
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, ErrorMatches, `cannot find any secure boot signature that is trusted by the current host's authorized signature database`)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMixedCaAndDigest(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemMixedCaAndDigest(c *C) {
 	// db has both CA entries and digest entries; image matches neither CA (db
 	// has wrong CA) but does match digest - should succeed.
 	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
@@ -327,55 +279,11 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMixedCaAndDigest(
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }
 
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestRevokedByDbx(c *C) {
-	// Image digest is in db but the same digest is also in dbx - dbx revocation
-	// should take precedence, so should fail.
-	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
-	image := newMockImage().appendSignatures(sig)
-
-	vars := efitest.MakeMockVars()
-	vars.SetDb(c, efi.SignatureDatabase{
-		efitest.NewSignatureListDigests(c, sig.DigestAlgorithm(), msOwnerGuid, sig.Digest()),
-	})
-	vars.SetDbx(c, efi.SignatureDatabase{
-		efitest.NewSignatureListDigests(c, sig.DigestAlgorithm(), msOwnerGuid, sig.Digest()),
-	})
-	env := efitest.NewMockHostEnvironment(vars, nil)
-	ctx := env.VarContext(context.Background())
-
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `secure boot signature is forbidden by the current host's signature databases`)
-}
-
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostDigestRevokedByDbxWithSha384Entry(c *C) {
-	// Signatures are SHA256 Authenticode, but DBX revocation should use the
-	// image digest for the signature list algorithm (SHA384 here).
-	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
-	sha384Digest := make([]byte, crypto.SHA384.Size())
-	for i := range sha384Digest {
-		sha384Digest[i] = 0x4d
-	}
-	image := newMockImage().withDigest(crypto.SHA384, sha384Digest).appendSignatures(sig)
-
-	vars := efitest.MakeMockVars()
-	vars.SetDb(c, efi.SignatureDatabase{
-		efitest.NewSignatureListX509(c, msUefiCACert, msOwnerGuid),
-	})
-	vars.SetDbx(c, efi.SignatureDatabase{
-		efitest.NewSignatureListDigests(c, crypto.SHA384, msOwnerGuid, sha384Digest),
-	})
-	env := efitest.NewMockHostEnvironment(vars, nil)
-	ctx := env.VarContext(context.Background())
-
-	err := CheckImageSignatureIsValidForHost(ctx, image)
-	c.Check(err, ErrorMatches, `secure boot signature is forbidden by the current host's signature databases`)
-}
-
-func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleDigestsInDb(c *C) {
+func (s *imageTrustSuite) TestCheckPEImageKnownBySystemMultipleDigestsInDb(c *C) {
 	// db has multiple digest entries whereas only one matches the image -
 	// should succeed.
 	sig := efitest.ReadWinCertificateAuthenticodeDetached(c, shimUbuntuSig4)
@@ -398,6 +306,6 @@ func (s *imageTrustSuite) TestCheckImageSignatureIsValidForHostMultipleDigestsIn
 	env := efitest.NewMockHostEnvironment(vars, nil)
 	ctx := env.VarContext(context.Background())
 
-	err := CheckImageSignatureIsValidForHost(ctx, image)
+	err := CheckPEImageKnownBySystem(ctx, image)
 	c.Check(err, IsNil)
 }

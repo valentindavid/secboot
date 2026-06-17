@@ -24,22 +24,36 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"errors"
+	"fmt"
 
 	efi "github.com/canonical/go-efilib"
-	"golang.org/x/xerrors"
 )
 
-var mockedCheckImageSignatureIsValidForHost func(ctx context.Context, image Image) error
-
-// CheckImageSignatureIsValidForHost checks whether the supplied image has at
-// least one Authenticode signature that is authorized by the host's authorized
-// signature database (the UEFI "db" variable).
+// CheckPEImageKnownBySystem checks whether the supplied PE image has
+// at least one Authenticode signature or a hash that is authorized by
+// the host's authorized signature database (the UEFI "db" variable).
 //
-// The image must have at least one Authenticode signature. It is not possible
-// to authorize an unsigned image based solely on its digest being present in db.
+// This function is intended for checking that the current system is
+// "aware" of any certificate used by the image or the image itself.
+// It does not verify that the system would accept that image. In
+// particular, this does **not** verify that:
+//  * the Authenticode signature is valid the image.
+//  * the signature is correctly signed by by the issuer certificate.
+//  * that the hash of the image is not revoked.
+//  * that the signature hash is not revoked.
+//  * that the signing chain is not revoked.
 //
-// The image is authorized if:
+// This is intended to be used during boot asset updates to verify that a new
+// image has new enough authorized signature database, so that it will
+// be able to load the images when secure boot is enforced, without the
+// need of an update.
+//
+// For example, a shim binary signed only by a newer Microsoft UEFI CA will not
+// be loadable on older hardware whose db only contains the older CA. Similarly,
+// an image whose digest is not in db (if digest-based authorization is used) will
+// not be loadable.
+//
+// The image is known if:
 //   - At least one of its Authenticode signatures chains to an X.509 certificate
 //     authority that is enrolled in db, OR
 //   - The PE image digest matches a digest entry in db, where the PE image digest
@@ -50,17 +64,9 @@ var mockedCheckImageSignatureIsValidForHost func(ctx context.Context, image Imag
 // each digest algorithm present in db and checks for a match against the
 // corresponding signature list entries. This allows an image to be verified
 // against digest entries regardless of the hash algorithm used by its
-// Authenticode signature.
-//
-// This is intended to be used during boot asset updates to verify that a new
-// image will actually be loadable, when secure boot is enforced, by the host's
-// firmware before it is installed.
-//
-// For example, a shim binary signed only by a newer Microsoft UEFI CA will not
-// be loadable on older hardware whose db only contains the older CA. Similarly,
-// an image whose digest is not in db (if digest-based authorization is used) will
-// not be loadable. An unsigned image cannot be loadable even if its digest is
-// enrolled in db.
+// Authenticode signature. Note that EDK II for instance  does not
+// verify hashes algorithms not listed by Authenticode signatures if at
+// least one signature exists.
 //
 // The context must provide access to the EFI variable backend via go-efilib's
 // context mechanism. In general, pass the result of
@@ -68,93 +74,34 @@ var mockedCheckImageSignatureIsValidForHost func(ctx context.Context, image Imag
 //
 // Possible error conditions:
 //   - The image cannot be opened or is not a valid PE binary.
-//   - The image has no secure boot signatures.
 //   - The host's db variable cannot be read (eg, if EFI variables are unavailable).
-//   - The host's dbx variable cannot be read (eg, if EFI variables are unavailable).
-//   - The image is revoked by a certificate or digest entry in the host's dbx.
 //   - No signature on the image is authorized by the host's db.
-func CheckImageSignatureIsValidForHost(ctx context.Context, image Image) error {
-	if mockedCheckImageSignatureIsValidForHost != nil {
-		return mockedCheckImageSignatureIsValidForHost(ctx, image)
-	}
-
+func CheckPEImageKnownBySystem(ctx context.Context, image Image) error {
 	// Extract signatures from the image, and check for the presence of at
 	// least one signature before doing any further work, to give a more
 	// specific error if the image is not signed at all.
 	pei, err := openPeImage(image)
 	if err != nil {
-		return xerrors.Errorf("cannot open image: %w", err)
+		return fmt.Errorf("cannot open image: %w", err)
 	}
 
 	defer pei.Close()
 
-	sigs, err := pei.SecureBootSignatures()
+	imageSigs, err := pei.SecureBootSignatures()
 	if err != nil {
-		return xerrors.Errorf("cannot obtain secure boot signatures for image: %w", err)
+		return fmt.Errorf("cannot obtain secure boot signatures for image: %w", err)
 	}
 
-	if len(sigs) == 0 {
-		return errors.New("image has no secure boot signatures")
-	}
-
-	// Check for forbidden signatures in DBX first, to give a more specific
-	// error if the image is actually signed by a trusted CA but is revoked
-	// by DBX.
-	if err := checkDbxRevocation(ctx, pei, sigs); err != nil {
-		return err
-	}
-
-	// Check for a trusted signature in DB.
-	return checkDbAuthorization(ctx, pei, sigs)
-}
-
-func checkDbxRevocation(ctx context.Context, pei peImageHandle, sigs []*efi.WinCertificateAuthenticode) error {
-	dbx, err := efi.ReadSignatureDatabaseVariable(ctx, Dbx)
-	if err != nil {
-		if !errors.Is(err, efi.ErrVarNotExist) {
-			return xerrors.Errorf("cannot read forbidden signature database: %w", err)
-		}
-
-		// If DBX doesn't exist, then there are no forbidden signatures, so we can
-		// just treat it as empty and allow the image to be authorized by DB.
-		return nil
-	}
-
-	digests := newImageDigestCache(pei)
-	revokedByDigest, err := imageDigestIsForbiddenByDbx(digests, dbx)
-	if err != nil {
-		return err
-	}
-
-	if revokedByDigest {
-		return errors.New("secure boot signature is forbidden by the current host's signature databases")
-	}
-
-	// Per UEFI secure boot semantics, any match in DBX is sufficient to
-	// revoke an image, even if it has additional valid signatures.
-	for _, sig := range sigs {
-		if certIsForbiddenByDbx(sig, dbx) {
-			return errors.New("secure boot signature is forbidden by the current host's signature databases")
-		}
-	}
-
-	return nil
-}
-
-var errNoTrustedSignature = errors.New("cannot find any secure boot signature that is trusted by the current host's authorized signature database")
-
-func checkDbAuthorization(ctx context.Context, pei peImageHandle, imageSigs []*efi.WinCertificateAuthenticode) error {
 	db, err := efi.ReadSignatureDatabaseVariable(ctx, Db)
 	if err != nil {
-		if !errors.Is(err, efi.ErrVarNotExist) {
-			return xerrors.Errorf("cannot read authorized signature database: %w", err)
-		}
-		// If DB doesn't exist, then there are no authorized signatures, so the image cannot be
-		// authorized.
-		return errNoTrustedSignature
+		return fmt.Errorf("cannot read authorized signature database: %w", err)
 	}
 
 	digests := newImageDigestCache(pei)
+
+	// TODO: For revocation checks, we should check the image
+	// against entries of siglists of type EFI_CERT_SHA*_GUID in
+	// dbx.
 
 	for _, sigList := range db {
 		// Check for X.509 certificate-based authorization
@@ -166,55 +113,37 @@ func checkDbAuthorization(ctx context.Context, pei peImageHandle, imageSigs []*e
 				}
 
 				for _, imageSig := range imageSigs {
-					if !imageSig.CertWithIDLikelyTrustAnchor(efi.NewX509CertIDFromCertificate(cert)) {
-						continue
+					// TODO: For revocation check, we would need to verify that any certificate chain is not
+					// in dbx. Specifically all signature data against entries of type EFI_CERT_X509_SHA256,
+					// EFI_CERT_X509_SHA384, EFI_CERT_X509_SHA512. And certificates for type EFI_CERT_X509_GUID.
+					if imageSig.CertWithIDLikelyTrustAnchor(efi.NewX509CertIDFromCertificate(cert)) {
+						// If the signature chains to a trusted certificate, then the image is authorized.
+						return nil
 					}
-
-					// If the signature chains to a trusted certificate, then the image is authorized.
-					return nil
 				}
 			}
 		} else {
-			// Skip unrecognized signature list types since we cannot use them for verification
 			alg := efiSignatureListTypeToDigestAlg(sigList.Type)
 			if alg == crypto.Hash(0) {
+				// Skip unrecognized signature list types since we cannot use them for verification
 				continue
 			}
 
 			// Check for digest-based authorization
-			match, err := imageDigestMatchesDbSignatureList(digests, sigList)
+			digest, err := digests.digestForAlg(alg)
 			if err != nil {
 				return err
 			}
 
-			if match {
-				return nil
+			for _, sigEntry := range sigList.Signatures {
+				if bytes.Equal(sigEntry.Data, digest) {
+					return nil
+				}
 			}
 		}
 	}
 
-	return errNoTrustedSignature
-}
-
-func certIsForbiddenByDbx(sig *efi.WinCertificateAuthenticode, dbx efi.SignatureDatabase) bool {
-	for _, sigList := range dbx {
-		if sigList.Type != efi.CertX509Guid {
-			continue
-		}
-
-		for _, sigEntry := range sigList.Signatures {
-			revokedCert, err := x509.ParseCertificate(sigEntry.Data)
-			if err != nil {
-				continue
-			}
-
-			if sig.CertWithIDLikelyTrustAnchor(efi.NewX509CertIDFromCertificate(revokedCert)) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return fmt.Errorf("cannot find any secure boot signature that is trusted by the current host's authorized signature database")
 }
 
 type imageDigestCache struct {
@@ -222,7 +151,7 @@ type imageDigestCache struct {
 	digests map[crypto.Hash][]byte
 }
 
-func newImageDigestCache(pei peImageHandle) *imageDigestCache {
+	func newImageDigestCache(pei peImageHandle) *imageDigestCache {
 	return &imageDigestCache{
 		pei:     pei,
 		digests: make(map[crypto.Hash][]byte),
@@ -236,46 +165,11 @@ func (c *imageDigestCache) digestForAlg(alg crypto.Hash) ([]byte, error) {
 
 	digest, err := c.pei.ImageDigest(alg)
 	if err != nil {
-		return nil, xerrors.Errorf("cannot compute image digest with %v: %w", alg, err)
+		return nil, fmt.Errorf("cannot compute image digest with %v: %w", alg, err)
 	}
 
 	c.digests[alg] = digest
 	return digest, nil
-}
-
-func imageDigestMatchesDbSignatureList(digests *imageDigestCache, sigList *efi.SignatureList) (bool, error) {
-	alg := efiSignatureListTypeToDigestAlg(sigList.Type)
-	if alg == crypto.Hash(0) {
-		return false, nil
-	}
-
-	digest, err := digests.digestForAlg(alg)
-	if err != nil {
-		return false, err
-	}
-
-	for _, sigEntry := range sigList.Signatures {
-		if bytes.Equal(sigEntry.Data, digest) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func imageDigestIsForbiddenByDbx(digests *imageDigestCache, dbx efi.SignatureDatabase) (bool, error) {
-	for _, sigList := range dbx {
-		match, err := imageDigestMatchesDbSignatureList(digests, sigList)
-		if err != nil {
-			return false, err
-		}
-
-		if match {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func efiSignatureListTypeToDigestAlg(guid efi.GUID) crypto.Hash {
