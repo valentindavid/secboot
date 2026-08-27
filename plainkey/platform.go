@@ -141,6 +141,10 @@ func (*platformKeyDataHandler) ChangeAuthKey(data *secboot.PlatformKeyData, old,
 	return nil, errors.New("unsupported action")
 }
 
+func (h *platformKeyDataHandler) ValidateRole(data *secboot.PlatformKeyData, context any) (string, error) {
+	return "", errors.New("unsupported action")
+}
+
 func init() {
 	// Add the current version of this platform to the flags.
 	flags := secboot.PlatformProtectedByStorageContainer.AddPlatformFlags(1)

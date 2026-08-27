@@ -253,6 +253,55 @@ func (h *platformKeyDataHandler) ChangeAuthKey(data *secboot.PlatformKeyData, ol
 	return newHandle, nil
 }
 
+
+func (h *platformKeyDataHandler) ValidateRole(data *secboot.PlatformKeyData, context any) (string, error) {
+	var tpm *Connection
+	switch c := context.(type) {
+	case *Connection:
+		tpm = c
+	}
+
+	if tpm == nil {
+		var err error
+		tpm, err = ConnectToDefaultTPM()
+		switch {
+		case err == ErrNoTPM2Device:
+			return "", &secboot.PlatformHandlerError{
+				Type: secboot.PlatformHandlerErrorUnavailable,
+				Err:  err}
+		case err != nil:
+			return "", fmt.Errorf("cannot connect to TPM: %w", err)
+		}
+		defer tpm.Close()
+	}
+
+	var k *SealedKeyData
+	if err := json.Unmarshal(data.EncodedHandle, &k); err != nil {
+		return "", &secboot.PlatformHandlerError{
+			Type: secboot.PlatformHandlerErrorInvalidData,
+			Err:  err}
+	}
+	if k.data.Version() < 3 {
+		return "", &secboot.PlatformHandlerError{
+			Type: secboot.PlatformHandlerErrorInvalidData,
+			Err:  fmt.Errorf("invalid key data version: %d", k.data.Version())}
+	}
+
+	// Validate the initial key data
+	if _, err := k.validateData(tpm.TPMContext, data.Role); err != nil {
+		switch {
+		case isKeyDataError(err):
+			return "", &secboot.PlatformHandlerError{
+				Type: secboot.PlatformHandlerErrorInvalidData,
+				Err:  err}
+		default:
+			return "", fmt.Errorf("cannot validate key data: %w", err)
+		}
+	}
+
+	return data.Role, nil
+}
+
 func init() {
 	// Just use the flags to describe the current version of this platform.
 	flags := secboot.PlatformKeyDataHandlerFlags(0).AddPlatformFlags(3)

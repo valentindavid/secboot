@@ -130,6 +130,10 @@ func (*hooksPlatform) ChangeAuthKey(data *secboot.PlatformKeyData, old, new []by
 	return nil, errors.New("unsupported action")
 }
 
+func (h *hooksPlatform) ValidateRole(data *secboot.PlatformKeyData, context any) (string, error) {
+	return "", errors.New("unsupported action")
+}
+
 // KeyRevealer is an abstraction for an externally supplied key reveal hook.
 type KeyRevealer interface {
 	RevealKey(handle, ciphertext, aad []byte) (plaintext []byte, err error)

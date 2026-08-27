@@ -125,6 +125,10 @@ func (h *legacyPlatformKeyDataHandler) ChangeAuthKey(data *secboot.PlatformKeyDa
 	return nil, fmt.Errorf("passphrase authentication is not supported for the %s platform", legacyPlatformName)
 }
 
+func (h *legacyPlatformKeyDataHandler) ValidateRole(data *secboot.PlatformKeyData, context any) (string, error) {
+	return "", errors.New("not implemented")
+}
+
 // NewKeyDataFromSealedKeyObjectFile creates a secboot.KeyData for the TPM
 // sealed key object at the supplied path, in order to enable keys to be
 // recovered from the TPM sealed key object using the secboot.KeyData API.

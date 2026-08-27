@@ -236,6 +236,10 @@ func (h *mockPlatformKeyDataHandler) ChangeAuthKey(data *PlatformKeyData, old, n
 	return json.Marshal(&handle)
 }
 
+func (h *mockPlatformKeyDataHandler) ValidateRole(data *PlatformKeyData, context any) (string, error) {
+	return "", errors.New("not implemented")
+}
+
 type mockKeyDataWriter struct {
 	tmp   *bytes.Buffer
 	final *bytes.Buffer

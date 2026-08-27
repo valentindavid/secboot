@@ -161,6 +161,8 @@ type PlatformKeyDataHandler interface {
 	//
 	// On success, it should return an updated handle.
 	ChangeAuthKey(data *PlatformKeyData, old, new []byte, context any) ([]byte, error)
+
+	ValidateRole(data *PlatformKeyData, context any) (string, error)
 }
 
 var keyDataHandlers = make(map[string]platformKeyDataHandlerInfo)

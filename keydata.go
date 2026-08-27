@@ -1254,3 +1254,14 @@ func MakeDiskUnlockKey(rand io.Reader, alg crypto.Hash, primaryKey PrimaryKey) (
 
 	return pk.unlockKey(alg), cleartextPayload, nil
 }
+
+func (d *KeyData) ValidateRole() (string, error) {
+	handlerInfo, exists := keyDataHandlers[d.data.PlatformName]
+	if !exists {
+		return "", ErrNoPlatformHandlerRegistered
+	}
+
+	role, err := handlerInfo.handler.ValidateRole(d.platformKeyData(), nil)
+
+	return role, err
+}
